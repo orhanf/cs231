@@ -15,19 +15,20 @@ def softmax_loss_naive(W, X, y, reg):
   - gradient with respect to weights W, an array of same size as W
   """
   # Initialize the loss and gradient to zero.
-  loss = 0.0
-  dW = np.zeros_like(W)
+  num_samples = X.shape[1]
+  num_classes = W.shape[0]
+  Y  = np.eye(num_classes)[:, y]
 
-  #############################################################################
-  # TODO: Compute the softmax loss and its gradient using explicit loops.     #
-  # Store the loss in loss and the gradient in dW. If you are not careful     #
-  # here, it is easy to run into numeric instability. Don't forget the        #
-  # regularization!                                                           #
-  #############################################################################
-  pass
-  #############################################################################
-  #                          END OF YOUR CODE                                 #
-  #############################################################################
+  M = np.dot(W, X)
+  M = M - np.max(M, axis=0)
+  expM = np.exp(M)
+  probs = expM / np.sum(expM, axis=0)
+  log_probs = np.log(probs)
+
+  G = (0.5 * reg) * np.sum(W*W)
+  loss = -( 1.0 /num_samples ) * np.sum( Y * log_probs ) + G
+
+  dW = -(1.0/num_samples) * np.transpose(np.dot(X, np.transpose(Y - probs))) + (reg * W);
 
   return loss, dW
 
@@ -39,18 +40,19 @@ def softmax_loss_vectorized(W, X, y, reg):
   Inputs and outputs are the same as softmax_loss_naive.
   """
   # Initialize the loss and gradient to zero.
-  loss = 0.0
-  dW = np.zeros_like(W)
+  num_samples = X.shape[1]
+  num_classes = W.shape[0]
+  Y  = np.eye(num_classes)[:, y]
 
-  #############################################################################
-  # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
-  # Store the loss in loss and the gradient in dW. If you are not careful     #
-  # here, it is easy to run into numeric instability. Don't forget the        #
-  # regularization!                                                           #
-  #############################################################################
-  pass
-  #############################################################################
-  #                          END OF YOUR CODE                                 #
-  #############################################################################
+  M = np.dot(W, X)
+  M = M - np.max(M, axis=0)
+  expM = np.exp(M)
+  probs = expM / np.sum(expM, axis=0)
+  log_probs = np.log(probs)
+
+  G = (0.5 * reg) * np.sum(W*W)
+  loss = -( 1.0 /num_samples ) * np.sum( Y * log_probs ) + G
+
+  dW = -(1.0/num_samples) * np.transpose(np.dot(X, np.transpose(Y - probs))) + (reg * W);
 
   return loss, dW
