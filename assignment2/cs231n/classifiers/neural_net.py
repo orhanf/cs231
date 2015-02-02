@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy
+
+from softmax import softmax_loss_b as softmax_loss
 
 def init_two_layer_model(input_size, hidden_size, output_size):
   """
@@ -74,46 +77,35 @@ def two_layer_net(X, model, y=None, reg=0.0):
   N, D = X.shape
 
   # compute the forward pass
-  scores = None
-  #############################################################################
-  # TODO: Perform the forward pass, computing the class scores for the input. #
-  # Store the result in the scores variable, which should be an array of      #
-  # shape (N, C).                                                             #
-  #############################################################################
-  pass
-  #############################################################################
-  #                              END OF YOUR CODE                             #
-  #############################################################################
-  
+  a1 = np.maximum(0., np.dot(X, W1) + b1)
+  a1mask = scipy.sign(a1)
+  scores = np.dot(a1, W2) + b2
+
   # If the targets are not given then jump out, we're done
   if y is None:
     return scores
 
   # compute the loss
-  loss = None
-  #############################################################################
-  # TODO: Finish the forward pass, and compute the loss. This should include  #
-  # both the data loss and L2 regularization for W1 and W2. Store the result  #
-  # in the variable loss, which should be a scalar. Use the Softmax           #
-  # classifier loss. So that your results match ours, multiply the            #
-  # regularization loss by 0.5                                                #
-  #############################################################################
-  pass
-  #############################################################################
-  #                              END OF YOUR CODE                             #
-  #############################################################################
+  num_samples = scores.shape[0]
+  num_classes = scores.shape[1]
+  Y = np.eye(num_classes)[y, :]
+
+  scores = scores - np.max(scores, axis=1)[:, None]
+  expM = np.exp(scores)
+  probs = expM / np.sum(expM, axis=1)[:, None]
+  log_probs = np.log(probs)
+
+  G = (0.5 * reg) * (np.sum(W1*W1) + np.sum(W2*W2))
+  loss = -( 1.0 /num_samples ) * np.sum( Y * log_probs ) + G
 
   # compute the gradients
+  d3 = probs - Y
+  d2 = np.dot(d3, W2.T) * a1mask
   grads = {}
-  #############################################################################
-  # TODO: Compute the backward pass, computing the derivatives of the weights #
-  # and biases. Store the results in the grads dictionary. For example,       #
-  # grads['W1'] should store the gradient on W1, and be a matrix of same size #
-  #############################################################################
-  pass
-  #############################################################################
-  #                              END OF YOUR CODE                             #
-  #############################################################################
+  grads['W2'] = (1./num_samples) * np.dot(a1.T, d3) + (reg * W2)
+  grads['b2'] = (1./num_samples) * np.sum(d3,axis=0)
+  grads['W1'] = (1./num_samples) * np.dot(X.T, d2) + (reg * W1)
+  grads['b1'] = (1./num_samples) * np.sum(d2,axis=0)
 
   return loss, grads
 
