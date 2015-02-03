@@ -1,4 +1,8 @@
 import numpy as np
+import scipy as sp
+from scipy import ndimage
+from scipy import signal
+
 
 def affine_forward(x, w, b):
   """
@@ -12,20 +16,12 @@ def affine_forward(x, w, b):
   x - Input data, of shape (N, d_1, ..., d_k)
   w - Weights, of shape (D, M)
   b - Biases, of shape (M,)
-  
+
   Returns a tuple of:
   - out: output, of shape (N, M)
   - cache: (x, w, b)
   """
-  out = None
-  #############################################################################
-  # TODO: Implement the affine forward pass. Store the result in out. You     #
-  # will need to reshape the input into rows.                                 #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+  out = np.dot(x.reshape(x.shape[0],-1),w) + b
   cache = (x, w, b)
   return out, cache
 
@@ -46,14 +42,9 @@ def affine_backward(dout, cache):
   - db: Gradient with respect to b, of shape (M,)
   """
   x, w, b = cache
-  dx, dw, db = None, None, None
-  #############################################################################
-  # TODO: Implement the affine backward pass.                                 #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+  dx = np.dot(dout, w.T).reshape(x.shape)
+  dw = np.dot(x.reshape(x.shape[0],-1).T, dout)
+  db = dout.sum(axis=0)
   return dx, dw, db
 
 
@@ -68,14 +59,7 @@ def relu_forward(x):
   - out: Output, of the same shape as x
   - cache: x
   """
-  out = None
-  #############################################################################
-  # TODO: Implement the ReLU forward pass.                                    #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+  out = np.maximum(0., x)
   cache = x
   return out, cache
 
@@ -91,14 +75,8 @@ def relu_backward(dout, cache):
   Returns:
   - dx: Gradient with respect to x
   """
-  dx, x = None, cache
-  #############################################################################
-  # TODO: Implement the ReLU backward pass.                                   #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+  x = cache
+  dx = dout * sp.sign(np.maximum(0., x))
   return dx
 
 
@@ -125,12 +103,35 @@ def conv_forward_naive(x, w, b, conv_param):
     W' = 1 + (W + 2 * pad - WW) / stride
   - cache: (x, w, b, conv_param)
   """
-  out = None
+  N, C, H, W = x.shape
+  F, _, HH, WW = w.shape
+  pad = conv_param['pad']
+  stride = conv_param['stride']
+
+  Hp = 1 + (H + 2 * conv_param['pad'] - HH) / conv_param['stride']
+  Wp = 1 + (W + 2 * conv_param['pad'] - WW) / conv_param['stride']
+
+  out = np.zeros((N, F, Hp, Wp))
   #############################################################################
   # TODO: Implement the convolutional forward pass.                           #
   # Hint: you can use the function np.pad for padding.                        #
   #############################################################################
-  pass
+  '''
+  print out.shape
+  for n in xrange(N):
+      for f in xrange(F):
+          cout = np.zeros((Hp, Wp))
+          for c in xrange(C):
+              xp  = np.pad(x[n, c, :, :], 1, 'constant')
+              #xp  = x[n, c, :, :]
+              flt = np.rot90(w[f, c, :, :], 2)
+              #flt = w[f, c, :, :]
+              cv = signal.convolve2d(xp, flt, mode='same')
+
+              cout += cv[:stride , :stride] + b[f]
+          out[n, f, :, :] = cout
+  '''
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
