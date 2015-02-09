@@ -80,6 +80,70 @@ def relu_backward(dout, cache):
   return dx
 
 
+def tanh_forward(x):
+  """
+  Computes the forward pass for a layer of hyperbolic tangent units (tanh).
+
+  Input:
+  - x: Inputs, of any shape
+
+  Returns a tuple of:
+  - out: Output, of the same shape as x
+  - cache: x
+  """
+  out = np.tanh(x)
+  cache = x
+  return out, cache
+
+
+def tanh_backward(dout, cache):
+  """
+  Computes the backward pass for a layer of hyperbolic tangent units (tanh).
+
+  Input:
+  - dout: Upstream derivatives, of any shape
+  - cache: Input x, of same shape as dout
+
+  Returns:
+  - dx: Gradient with respect to x
+  """
+  x = cache
+  dx = dout * (1. -(x**2))
+  return dx
+
+
+def stanh_forward(x):
+  """
+  Computes the forward pass for a layer of scaled hyperbolic tangent units (tanh).
+
+  Input:
+  - x: Inputs, of any shape
+
+  Returns a tuple of:
+  - out: Output, of the same shape as x
+  - cache: x
+  """
+  out = 1.7159 * np.tanh(2./3. * x)
+  cache = x
+  return out, cache
+
+
+def stanh_backward(dout, cache):
+  """
+  Computes the backward pass for a layer of scaled hyperbolic tangent units (tanh).
+
+  Input:
+  - dout: Upstream derivatives, of any shape
+  - cache: Input x, of same shape as dout
+
+  Returns:
+  - dx: Gradient with respect to x
+  """
+  x = cache
+  dx = dout * (1.7159 * 2./3. * (1. - np.tanh(2./3. * x) ** 2))
+  return dx
+
+
 def conv_forward_naive(x, w, b, conv_param):
   """
   A naive implementation of the forward pass for a convolutional layer.
