@@ -80,6 +80,42 @@ def relu_backward(dout, cache):
   return dx
 
 
+def prelu_forward(x, alpha):
+  """
+  Computes the forward pass for a layer of rectified linear units (ReLUs).
+
+  Input:
+  - x: Inputs, of any shape
+  - alpha: Negative slope parameter,same shape with x
+
+  Returns a tuple of:
+  - out: Output, of the same shape as x
+  - cache: x
+  """
+  out = np.maximum(0., x) + alpha * np.minimum(0., x)
+  cache = (x, alpha)
+  return out, cache
+
+
+def prelu_backward(dout, cache):
+  """
+  Computes the backward pass for a layer of parametrized rectified
+  linear units (PReLUs).
+
+  Input:
+  - dout: Upstream derivatives, of any shape
+  - cache: Input x, of same shape as dout
+
+  Returns:
+  - dx: Gradient with respect to x
+  - da: Gradient with respect to alpha
+  """
+  x, alpha = cache
+  dx = dout * (sp.sign(np.maximum(0., x)) - alpha * sp.sign(np.minimum(0., x)))
+  da = dout * np.minimum(x, 0.)
+  return dx, da
+
+
 def tanh_forward(x):
   """
   Computes the forward pass for a layer of hyperbolic tangent units (tanh).
@@ -108,7 +144,7 @@ def tanh_backward(dout, cache):
   - dx: Gradient with respect to x
   """
   x = cache
-  dx = dout * (1. -(x**2))
+  dx = (1. -(np.tanh(x)**2)) * dout
   return dx
 
 
@@ -140,7 +176,41 @@ def stanh_backward(dout, cache):
   - dx: Gradient with respect to x
   """
   x = cache
-  dx = dout * (1.7159 * 2./3. * (1. - np.tanh(2./3. * x) ** 2))
+  dx = (1.7159 * 2./3. * (1. - np.tanh(2./3. * x) ** 2)) * dout
+  return dx
+
+
+def dropout_forward(x, p=0.5):
+  """
+  Computes the forward pass for a dropout layer.
+
+  Input:
+  - x: Inputs, of any shape
+  - p: Probability of keeping unit active, higher means less dropout
+  Returns a tuple of:
+  - out: Output, of the same shape as x
+  - cache: x
+  """
+  mask = (np.random.rand(*x.shape) < p) / p
+  out = x * mask
+  cache = (mask, p)
+  return out, cache
+
+
+def dropout_backward(dout, cache):
+  """
+  Computes the backward pass for dropout layer.
+
+  Input:
+  - dout: Upstream derivatives, of any shape
+  - cache: Input x, of same shape as dout
+
+  Returns:
+  - dx: Gradient with respect to x
+  """
+  mask = cache[0]
+  p = cache[1]
+  dx = dout * sp.sign(mask) / p
   return dx
 
 
