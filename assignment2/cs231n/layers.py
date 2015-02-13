@@ -214,6 +214,63 @@ def dropout_backward(dout, cache):
   return dx
 
 
+def bn_transform_forward(x, gamma, beta, eps=1e-8):
+  """
+  Computes the forward pass for an affine (fully-connected) layer.
+
+  The input x has shape (N, d_1, ..., d_k) where x[i] is the ith input.
+  We multiply this against a weight matrix of shape (D, M) where
+  D = \prod_i d_i
+
+  Inputs:
+  x - Input data, of shape (N, d_1, ..., d_k)
+  w - Weights, of shape (D, M)
+  b - Biases, of shape (M,)
+
+  Returns a tuple of:
+  - out: output, of shape (N, M)
+  - cache: (x, w, b)
+  """
+  mu = np.mean(x, axis=0)
+  var = np.var(x, axis=0)
+  x_hat = (x - mu) / np.sqrt(var + eps)
+  out = gamma * x_hat + beta
+  cache = (x, gamma, beta, mu, var, x_hat)
+  return out, cache
+
+
+def bn_transform_backward(dout, cache, eps=1e-8):
+  """
+  Computes the backward pass for an affine layer.
+
+  Inputs:
+  - dout: Upstream derivative, of shape (N, M)
+  - cache: Tuple of:
+    - x: Input data, of shape (N, d_1, ... d_k)
+    - w: Weights, of shape (D, M)
+
+  Returns a tuple of:
+  - dx: Gradient with respect to x, of shape (N, d1, ..., d_k)
+  - dw: Gradient with respect to w, of shape (D, M)
+  - db: Gradient with respect to b, of shape (M,)
+  """
+  x, gamma, beta, mu, var, x_hat = cache
+  n_samples = x.shape[0]
+  dx_hat = dout * gamma
+  dvar = np.sum(dx_hat * (x - mu) * -0.5 * (var + eps)**(-1.5), axis=0)
+  dmu = (np.sum(dx_hat * -(1. / np.sqrt(var + eps)), axis=0)) + \
+         dvar * (np.sum(-2. * (x - mu), axis=0) / n_samples )
+
+  dx = dx_hat * (1. / np.sqrt(var + eps) ) + \
+       dvar * (2. * (x - mu) / n_samples) + \
+       dmu * (1. / n_samples)
+
+  dgamma = np.sum(dout * x_hat, axis=0)
+  dbeta = np.sum(dout, axis=0)
+
+  return dx, dgamma, dbeta
+
+
 def conv_forward_naive(x, w, b, conv_param):
   """
   A naive implementation of the forward pass for a convolutional layer.
