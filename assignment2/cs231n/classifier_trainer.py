@@ -12,6 +12,8 @@ class ClassifierTrainer(object):
             learning_rate=1e-2, momentum=0, learning_rate_decay=0.95,
             update='momentum', sample_batches=True,
             num_epochs=30, batch_size=100, acc_frequency=None,
+            adarho=0.95, adaeps=1e-6,
+            beta1=0.1, beta2=0.001,
             verbose=False):
     """
     Optimize the parameters of a model to minimize a loss function. We use
@@ -100,6 +102,25 @@ class ClassifierTrainer(object):
           self.step_cache[p] = (decay_rate * self.step_cache[p]) + \
                                  ((1. - decay_rate) * (grads[p]**2))
           dx = - learning_rate * grads[p] / np.sqrt(self.step_cache[p]+ 1e-8)
+        elif update == 'adadelta':
+          if not p in self.step_cache:
+            self.step_cache[p] = [np.zeros(grads[p].shape),\
+                                  np.zeros(grads[p].shape)]
+          self.step_cache[p][0] = (adarho * self.step_cache[p][0]) + \
+                                 ((1. - adarho) * (grads[p]**2))
+          dx = - np.sqrt((self.step_cache[p][1] + adaeps)/(self.step_cache[p][0] + adaeps)) * grads[p]
+          self.step_cache[p][1] = adarho * self.step_cache[p][1] + \
+                                  (1 - adarho) * dx**2
+        elif update == 'adam':
+          if not p in self.step_cache:
+            self.step_cache[p] = [np.zeros(grads[p].shape),
+                                  np.zeros(grads[p].shape),
+                                  np.zeros(grads[p].shape)]
+          mg_t = (1.0 - beta1) * self.step_cache[p][1] + beta1 * grads[p]
+          r_t = (1.0 - beta2) * self.step_cache[p][0] + beta2 * grads[p]**2
+          dx = learning_rate * -mg_t / (np.sqrt(r_t) + adaeps)
+          self.step_cache[p][0] = r_t
+          self.step_cache[p][1] = mg_t
         else:
           raise ValueError('Unrecognized update type "%s"' % update)
 
