@@ -1,5 +1,6 @@
 import numpy as np
-
+import scipy.optimize as optimize
+from collections import OrderedDict
 
 class ClassifierTrainer(object):
     """ The trainer class performs SGD with momentum on a cost function """
@@ -70,20 +71,68 @@ class ClassifierTrainer(object):
 
         # some second order methods
         if update in ['lbfgs', 'cg']:
-            if update == 'lbfgs':
-                import scipy.optimize as optimize
-                f = lambda m : loss_function(X, m, y, reg)[0]
-                fprime = lambda m : loss_function(X, m, y, reg)[1]
-                x0 = model.serialize()
-                x, f, d = optimize.fmin_l_bfgs_b(f, x0, fprime=fprime)
-                best_model = []
-                loss_history = [0.]
-                train_acc_history = [0.]
-                val_acc_history = [0.]
-                print f
-            elif update == 'cg':
-                pass
+            vec_model, p_to_info = serialize_model(model)
+            f = lambda m : loss_function(X, m, y, reg, p_to_info)[0]
+            fprime = lambda m : loss_function(X, m, y, reg, p_to_info)[1]
 
+
+            if update == 'lbfgs':
+                opts = {'maxiter' : 15000,   # default value.
+                        'disp'    : verbose, # non-default value.
+                        'pgtol'   : 1e-05,   # default value
+                        'epsilon' : 1e-08}   # default value.
+                model, final_cost, add_ = optimize.fmin_l_bfgs_b(f,
+                                                                 vec_model,
+                                                                 fprime=fprime,
+                                                                 **opts)
+                print add_
+            elif update == 'cg':
+                opts = {'maxiter'    : None,    # default value.
+                        'disp'       : verbose, # non-default value.
+                        'gtol'       : 1e-5,    # default value.
+                        'norm'       : np.inf,  # default value.
+                        'full_output': True,    # non-default value.
+                        'epsilon'    : 1.4901161193847656e-08}  # default value.
+                model, final_cost, func_calls,\
+                   grad_calls, warnflag = optimize.fmin_cg(f,
+                                                           vec_model,
+                                                           fprime=fprime,
+                                                           **opts)
+                warnmsg = ['Success.',
+                           'The maximum number of iterations was exceeded.',
+                           'Gradient and/or function calls were not changing. May indicate' +\
+                           'that precision was lost, i.e., the routine did not converge.']
+                print warnmsg[warnflag]
+
+            model = deserialize_model(model, p_to_info)
+            loss_history = [final_cost]
+
+            # evaluate train accuracy
+            if N > 1000:
+                train_mask = np.random.choice(N, 1000)
+                X_train_subset = X[train_mask]
+                y_train_subset = y[train_mask]
+            else:
+                X_train_subset = X
+                y_train_subset = y
+            scores_train = loss_function(X_train_subset, model)
+            y_pred_train = np.argmax(scores_train, axis=1)
+            train_acc = np.mean(y_pred_train == y_train_subset)
+            train_acc_history.append(train_acc)
+
+            # evaluate val accuracy
+            scores_val = loss_function(X_val, model)
+            y_pred_val = np.argmax(scores_val, axis=1)
+            val_acc = np.mean(y_pred_val ==  y_val)
+            val_acc_history.append(val_acc)
+
+            # keep track of the best model based on validation accuracy
+            if val_acc > best_val_acc:
+                # make a copy of the model
+                best_val_acc = val_acc
+                best_model = {}
+                for p in model:
+                    best_model[p] = model[p].copy()
 
         # first order methods
         else:
@@ -168,7 +217,7 @@ class ClassifierTrainer(object):
                 scores_train = loss_function(X_train_subset, model)
                 y_pred_train = np.argmax(scores_train, axis=1)
                 train_acc = np.mean(y_pred_train == y_train_subset)
-                -train_acc_history.append(train_acc)
+                train_acc_history.append(train_acc)
 
                 # evaluate val accuracy
                 scores_val = loss_function(X_val, model)
@@ -195,7 +244,7 @@ class ClassifierTrainer(object):
         return best_model, loss_history, train_acc_history, val_acc_history
 
 
-def serialize_model(model):
+def serialize_model(model, p_to_info=None):
     """
     vectorizes the whole model parameters
     model is a dictionaty of actual parameters
@@ -203,12 +252,17 @@ def serialize_model(model):
     a dictionary from parameter name to (shape, startIdx)
     """
     vec_model = np.array([],dtype=np.float32)
-    p_to_info = {}
-    idx = 0
-    for p, v in model.iteritems():
-        p_to_info[p] = (v.shape, idx)
-        idx += np.prod(v.shape)
-        vec_model = np.concatenate((vec_model, v.flatten()))
+    if not p_to_info:
+        p_to_info = OrderedDict()
+        idx = 0
+        for p, v in model.iteritems():
+            p_to_info[p] = (v.shape, idx)
+            idx += np.prod(v.shape)
+            vec_model = np.concatenate((vec_model, v.flatten()))
+    else:
+        for p, v in p_to_info.iteritems():
+            vec_model = np.concatenate((vec_model, model[p].flatten()))
+
     return vec_model, p_to_info
 
 
@@ -216,7 +270,7 @@ def deserialize_model(vec_model, p_to_info):
     """
     write me
     """
-    model = {}
+    model = OrderedDict()
     for p, v in p_to_info.iteritems():
         shapeThis = v[0]
         startIdx = v[1]

@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
-
+from collections import OrderedDict
 from softmax import softmax_loss_b as softmax_loss
-
 def init_two_layer_model(input_size, hidden_size, output_size):
   """
   Initialize the weights and biases for a two-layer fully connected neural
@@ -32,7 +31,7 @@ def init_two_layer_model(input_size, hidden_size, output_size):
   model['b2'] = np.zeros(output_size)
   return model
 
-def two_layer_net(X, model, y=None, reg=0.0):
+def two_layer_net(X, model, y=None, reg=0.0, p_to_info=None):
   """
   Compute the loss and gradients for a two layer fully connected neural network.
   The net has an input dimension of D, a hidden layer dimension of H, and
@@ -71,6 +70,8 @@ def two_layer_net(X, model, y=None, reg=0.0):
   - grads: Dictionary mapping parameter names to gradients of those parameters
     with respect to the loss function. This should have the same keys as model.
   """
+  if p_to_info:
+      model= deserialize_model(model, p_to_info)
 
   # unpack variables from the model dictionary
   W1,b1,W2,b2 = model['W1'], model['b1'], model['W2'], model['b2']
@@ -107,5 +108,42 @@ def two_layer_net(X, model, y=None, reg=0.0):
   grads['W1'] = (1./num_samples) * np.dot(X.T, d2) + (reg * W1)
   grads['b1'] = (1./num_samples) * np.sum(d2,axis=0)
 
+  if p_to_info:
+    grads, _ = serialize_model(grads, p_to_info)
+
   return loss, grads
+
+def serialize_model(model, p_to_info=None):
+    """
+    vectorizes the whole model parameters
+    model is a dictionaty of actual parameters
+    returns a vector of parameters and
+    a dictionary from parameter name to (shape, startIdx)
+    """
+    vec_model = np.array([],dtype=np.float32)
+    if not p_to_info:
+        p_to_info = OrderedDict()
+        idx = 0
+        for p, v in model.iteritems():
+            p_to_info[p] = (v.shape, idx)
+            idx += np.prod(v.shape)
+            vec_model = np.concatenate((vec_model, v.flatten()))
+    else:
+        for p, v in p_to_info.iteritems():
+            vec_model = np.concatenate((vec_model, model[p].flatten()))
+
+    return vec_model, p_to_info
+
+
+def deserialize_model(vec_model, p_to_info):
+    """
+    write me
+    """
+    model = OrderedDict()
+    for p, v in p_to_info.iteritems():
+        shapeThis = v[0]
+        startIdx = v[1]
+        endIdx = startIdx + np.prod(shapeThis)
+        model[p] = vec_model[startIdx:endIdx].reshape(shapeThis)
+    return model
 
